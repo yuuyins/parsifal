@@ -470,6 +470,12 @@ def _import_articles(request, source, articles):
     else:
         messages.warning(request, u'The bibtex file had no valid entry!')
 
+def science_direct_add_curly_braces(record):
+    print record.get('title', 'Not found')
+    print record.get('abstract', 'Not found')
+    print ''
+    return record
+
 @author_required
 @login_required
 @require_POST
@@ -487,7 +493,10 @@ def import_bibtex(request):
 
     if ext in valid_extensions or bibtex_file.content_type == 'application/x-bibtex':
         parser = BibTexParser()
+
         parser.customization = convert_to_unicode
+        parser.customization = science_direct_add_curly_braces
+
         bib_database = bibtexparser.load(bibtex_file, parser=parser)
         articles = bibtex_to_article_object(bib_database, review, source)
         _import_articles(request, source, articles)
