@@ -1,0 +1,98 @@
+{
+  "version": "3",
+
+  "networks": {
+    "parsifal-app": {
+      "driver": "bridge"
+    }
+  },
+
+  "volumes": {
+    "parsifal-database-postgres": null
+  },
+
+  "services": {
+    "parsifal-database-postgres": {
+      "image": "docker.io/postgres:14-alpine3.16",
+      "environment": {
+        "POSTGRES_DB": "parsifal",
+        "POSTGRES_USER": "parsifal",
+        "POSTGRES_PASSWORD": "secret"
+      },
+      "volumes": [
+        "parsifal-database-postgres:/var/lib/postgres"
+      ],
+      "networks": {
+        "parsifal-app": {
+          "aliases": [
+            "parsifal-database-postgres--parsifal-app"
+          ]
+        }
+      },
+      "ports": [
+        "4242:5432"
+      ],
+      "hostname": "database.parsifal.localhost",
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "pg_isready",
+          "--dbname=parsifal",
+          "--username=parsifal"
+        ],
+        "start_period": "60s",
+        "interval": "10s",
+        "timeout": "45s",
+        "retries": 10
+      }
+    },
+
+    "parsifal-app": {
+      "image": "parsifal-app",
+      "depends_on": {
+        "parsifal-database-postgres": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "ALLOWED_HOSTS=*",
+        "DATABASE_URL=postgres://parsifal:secret@database.parsifal.localhost:5432/parsifal",
+        "DEBUG=True",
+        "ELSEVIER_API_KEY=api_key",
+        "EMAIL_BACKEND=django.core.mail.backends.filebased.EmailBackend",
+        "EMAIL_HOST=email_host",
+        "EMAIL_HOST_PASSWORD=s3cr3t",
+        "EMAIL_HOST_USER=host_user",
+        "EMAIL_PORT=587",
+        "EMAIL_USE_TLS=True",
+        "LANG": "en_US.UTF-8",
+        "LD_LIBRARY_PATH": "/usr/lib:/lib:/usr/local/lib",
+        "SECRET_KEY=parsifal"
+      },
+      "working_dir": "/opt/parsifal",
+      "networks": [
+        "parsifal-app"
+      ],
+      "ports": [
+        "2424:2424"
+      ],
+      "hostname": "parsifal.localhost",
+      "tty": true,
+      "command": "sh -c \"python manage.py migrate && python manage.py runserver parsifal.localhost:2424\"",
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://parsifal.localhost:2424",
+          "||",
+          "exit 1"
+        ],
+        "start_period": "60s",
+        "interval": "10s",
+        "timeout": "45s",
+        "retries": 10
+      }
+    }
+  }
+}
